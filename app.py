@@ -12,7 +12,8 @@ import streamlit as st
 from prompts import *
 
 # Set up Tesseract path
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 reader = easyocr.Reader(['en'], gpu=device.type == 'cuda')
