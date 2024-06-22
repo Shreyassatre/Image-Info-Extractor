@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
-import easyocr
 import torch
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
@@ -16,7 +15,6 @@ from prompts import *
 pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-reader = easyocr.Reader(['en'], gpu=device.type == 'cuda')
 
 app = FastAPI()
 
@@ -40,30 +38,19 @@ def preprocess_and_extract_text_tesseract(image):
     tesseract_text = pytesseract.image_to_string(morphed_image, config=custom_config)
     return tesseract_text
 
-def extract_text_easyocr(image):
-    try:
-        result = reader.readtext(image, detail=0)
-        easyocr_text = "\n".join(result)
-        return easyocr_text
-    except Exception as e:
-        return ""
-
-def extract_important_info(easyocr_text, tesseract_text, prompt):
+def extract_important_info(tesseract_text, prompt):
     llm = ChatGroq(
         groq_api_key="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",
         model_name="Llama3-70b-8192"
     )
     template = PromptTemplate(
-        input_variables=["tesseract_text", "easyocr_text", "prompt"],
+        input_variables=["tesseract_text", "prompt"],
         template="""
-        I have extracted text from same image using 2 methods i.e. Tesseract and EasyOCR. I am providing both extracted text here.
-        Here is the extracted information from Tesseract:
+        I have extracted text from an image using Tesseract. Here is the extracted information:
         {tesseract_text}
-        And here is the extracted information from EasyOCR:
-        {easyocr_text}
 
-        You can use both texts (tesseract_text, easyocr_text) and extract important information. Note: Both texts are extracted from same image.
-        
+        Please extract the important information as requested.
+
         -----------------------------------------------------------
 
         {prompt}        
@@ -71,7 +58,7 @@ def extract_important_info(easyocr_text, tesseract_text, prompt):
         If any information is not found, return "Not Found" for that field.
         """
     )
-    formatted_prompt = template.format(easyocr_text=easyocr_text, tesseract_text=tesseract_text, prompt=prompt)
+    formatted_prompt = template.format(tesseract_text=tesseract_text, prompt=prompt)
     messages = [HumanMessage(content=formatted_prompt)]
     response = llm.invoke(messages)
     extracted_info = response.content
@@ -88,8 +75,7 @@ def extract_important_info(easyocr_text, tesseract_text, prompt):
 
 def process_image(image, prompt):
     tesseract_text = preprocess_and_extract_text_tesseract(image)
-    easyocr_text = extract_text_easyocr(image)
-    extracted_info = extract_important_info(easyocr_text, tesseract_text, prompt)
+    extracted_info = extract_important_info(tesseract_text, prompt)
     return extracted_info
 
 @app.post("/process-image/")
