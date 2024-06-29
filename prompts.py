@@ -6,6 +6,7 @@ dl_prompt="""Most Importat: follow mentioned format below strictly. i.e. every c
         EXP:
         LN:
         FN:
+        MN:
         ADDRESS:
         DOB:
         SEX:
@@ -45,7 +46,12 @@ dl_prompt="""Most Importat: follow mentioned format below strictly. i.e. every c
         Uppercase letters and numbers only
 
         FN:
-        note: It is a first name.
+        note: Take onlt one word from it as its only first name.
+        Label: FN
+        Uppercase letters and numbers only
+
+        MN:
+        note: take second part of FN as its middle name.
         Label: FN
         Uppercase letters and numbers only
 
@@ -111,6 +117,7 @@ id_prompt="""
         EXP:
         LN:
         FN:
+        MN:
         ADDRESS:
         DOB:
         SEX:
@@ -144,9 +151,14 @@ id_prompt="""
         Format: Uppercase letters and numbers only
 
         FN:
-        note: It is a first name.
+        note: Take onlt one word from it as its only first name.
         Label: FN
-        Format: Uppercase letters and numbers only
+        Uppercase letters and numbers only
+
+        MN:
+        note: If FN has 2 words then take second part of FN as its middle name. If LN has 2 words then take first part of LN as its middle name.
+        Label: FN 
+        Uppercase letters and numbers only
 
         ADDRESS:
         note: if you find any address then extrat it in following format.
@@ -286,7 +298,8 @@ passport_prompt="""
         Correct misdetected characters to /
         
         Authority:
-        note: if you find any Authority name then extrat it in following format.
+        note: if you find any Authority name then extrat it in following format. the authority name is printed on 2 lines so it is possible that at time of extraction first part of authority name is present in previous extracted line.
+        Example: United States can get extracted in previous line and Department of State can get extracted in next line. But actully the authority name is United States Department of State
         Label: Authority
 
 """

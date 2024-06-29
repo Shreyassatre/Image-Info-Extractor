@@ -1,9 +1,6 @@
-import os
 import cv2
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter
-import pytesseract
-import torch
+import easyocr
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from langchain_groq.chat_models import ChatGroq
@@ -12,44 +9,39 @@ from langchain.schema import HumanMessage
 from prompts import *
 
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+# pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+reader = easyocr.Reader(['en'])
 
 app = FastAPI()
 
-def preprocess_and_extract_text_tesseract(image):
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    denoised_image = cv2.fastNlMeansDenoising(gray_image, None, 30, 7, 21)
-    blurred_image = cv2.GaussianBlur(denoised_image, (5, 5), 0)
-    thresholded_image = cv2.adaptiveThreshold(blurred_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    contours, _ = cv2.findContours(thresholded_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour = max(contours, key=cv2.contourArea)
-    x, y, w, h = cv2.boundingRect(contour)
-    cropped_image = gray_image[y:y+h, x:x+w]
-    pil_image = Image.fromarray(cropped_image)
-    enhancer = ImageEnhance.Contrast(pil_image)
-    enhanced_image = enhancer.enhance(2)
-    sharpened_image = enhanced_image.filter(ImageFilter.SHARPEN)
-    sharpened_image_np = np.array(sharpened_image)
-    kernel = np.ones((2, 2), np.uint8)
-    morphed_image = cv2.morphologyEx(sharpened_image_np, cv2.MORPH_CLOSE, kernel)
-    custom_config = r'--oem 3 --psm 6'
-    tesseract_text = pytesseract.image_to_string(morphed_image, config=custom_config)
-    return tesseract_text
+# def preprocess_and_extract_text_tesseract(image):
+#     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     thresholded_image = cv2.adaptiveThreshold(gray_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
-def extract_important_info(tesseract_text, prompt):
+#     result = reader.readtext(thresholded_image, detail=0)
+#     easyocr_text1 = "\n".join(result)
+#     return easyocr_text1
+
+def extract_text_easyocr(image):
+    try:
+        result = reader.readtext(image, detail=0)
+        easyocr_text = "\n".join(result)
+        return easyocr_text
+    except Exception as e:
+        return ""
+
+def extract_important_info(easyocr_text, prompt):
     llm = ChatGroq(
         groq_api_key="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",
         model_name="Llama3-70b-8192"
     )
     template = PromptTemplate(
-        input_variables=["tesseract_text", "prompt"],
+        input_variables=["easyocr_text", "prompt"],
         template="""
-        I have extracted text from an image using Tesseract. Here is the extracted information:
-        {tesseract_text}
-
-        Please extract the important information as requested.
+        I have extracted text from image using OCR method i.e. EasyOCR. I am providing extracted text here.
+        Here is the extracted information:
+        {easyocr_text}
 
         -----------------------------------------------------------
 
@@ -58,7 +50,7 @@ def extract_important_info(tesseract_text, prompt):
         If any information is not found, return "Not Found" for that field.
         """
     )
-    formatted_prompt = template.format(tesseract_text=tesseract_text, prompt=prompt)
+    formatted_prompt = template.format(easyocr_text=easyocr_text, prompt=prompt)
     messages = [HumanMessage(content=formatted_prompt)]
     response = llm.invoke(messages)
     extracted_info = response.content
@@ -74,8 +66,9 @@ def extract_important_info(tesseract_text, prompt):
     return info_dict
 
 def process_image(image, prompt):
-    tesseract_text = preprocess_and_extract_text_tesseract(image)
-    extracted_info = extract_important_info(tesseract_text, prompt)
+    # easyocr_text1 = preprocess_and_extract_text_tesseract(image)
+    easyocr_text = extract_text_easyocr(image)
+    extracted_info = extract_important_info(easyocr_text, prompt)
     return extracted_info
 
 @app.post("/process-image/")

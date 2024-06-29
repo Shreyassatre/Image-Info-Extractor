@@ -4,3 +4,6 @@ data
 output.csv
 Show.py
 withEasyOCR.py
+both.py
+origin.py
+process.py
